@@ -15,7 +15,7 @@ public class App extends Application {
     @Override
     public void start(Stage primaryStage) {
         primaryStage.setTitle("Template Editor");
-        primaryStage.setScene(new Scene(new MainWindow()));
+        primaryStage.setScene(new Scene(new MainWindow(primaryStage)));
         primaryStage.show();
     }
 }

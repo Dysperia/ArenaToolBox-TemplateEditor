@@ -1,17 +1,25 @@
 package com.dysperia.templateeditor;
 
+import java.io.File;
+import java.io.IOException;
+
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.ToolBar;
+import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.BorderPane;import javafx.stage.Stage;
+import javafx.scene.layout.BorderPane;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
 
 
 public class MainWindow extends BorderPane {
@@ -23,27 +31,54 @@ public class MainWindow extends BorderPane {
 	private final ListView<String> listView;
 	private final TextArea textArea;
 	private final BooleanProperty modifiedProperty = new SimpleBooleanProperty(false);
+	private final FileChooser fileChooser;
+	private final Stage stage;
+	private DataManager dataManager;
 	
-	public MainWindow() {
+	public MainWindow(Stage stage) {
+		fileChooser = new FileChooser();
+		this.stage = stage;
+		
 		listView = new ListView<>(titles);
         listView.setPrefSize(150, 400);
         listView.setEditable(false);
         listView.setItems(titles);
-        setLeft(listView);
         
         textArea = new TextArea(defaultText);
         textArea.setPrefSize(400, 400);
         setCenter(textArea);
 
         Button openButton = new Button(null, new ImageView(new Image("icon/open.png",24,24,true,true)));
+        openButton.setTooltip(new Tooltip("open"));
+        openButton.setOnAction(e -> {
+        	fileChooser.setTitle("Open TEMPLATE.DAT");
+            fileChooser.setInitialDirectory(new File(System.getProperty("user.home")));
+            fileChooser.getExtensionFilters().addAll(
+                new FileChooser.ExtensionFilter("TEMPLATE.DAT", "TEMPLATE.DAT")
+            );
+            File templateFile = fileChooser.showOpenDialog(this.stage);
+            if (templateFile != null && templateFile.exists()) {
+            	File pointer1File = new File(templateFile.getParentFile(), "POINTER1.DAT");
+            	if (pointer1File.exists()) {
+            		buildDataFromFilesAndUpdateView(templateFile, pointer1File);
+            	}
+            	else {
+            		showInfoAlert("File not found", "The file POINTER1.DAT was not found");
+            	}
+            }
+        });
+        
         Button saveButton = new Button(null, new ImageView(new Image("icon/save.png",24,24,true,true)));
+        saveButton.setTooltip(new Tooltip("save"));
         saveButton.disableProperty().bind(modifiedProperty.not());
+        
         Button showVariableButton = new Button(null, new ImageView(new Image("icon/view_variable.png",24,24,true,true)));
+        showVariableButton.setTooltip(new Tooltip("show variables"));
         showVariableButton.setOnAction(e -> {
-        	Stage stage = new Stage();
-    		stage.setTitle("Variables");
-    		stage.setScene(new Scene(new VariableTable()));
-    		stage.show();
+        	Stage newStage = new Stage();
+        	newStage.setTitle("Variables");
+        	newStage.setScene(new Scene(new VariableTable()));
+        	newStage.show();
         });
         ToolBar toolbar = new ToolBar(openButton, saveButton, showVariableButton);
         setTop(toolbar);
@@ -52,5 +87,23 @@ public class MainWindow extends BorderPane {
 	public void resetContent() {
 		titles.clear();
 		textArea.setText(defaultText);
+	}
+	
+	private void showInfoAlert(String title, String message) {
+		Alert alert = new Alert(AlertType.INFORMATION);
+		alert.setTitle(title);
+		alert.setHeaderText(null);
+		alert.setContentText(message);
+		alert.showAndWait();
+	}
+	
+	private void buildDataFromFilesAndUpdateView(File templateFile, File pointer1File) {
+		dataManager = new DataManager(templateFile, pointer1File);
+		try {
+			dataManager.readDataFromFiles();
+		} catch (IOException e) {
+			showInfoAlert("Cannot read files", "The file POINTER1.DAT or TEMPLATE.DAT was not found or it was impossible to read the data from thme");
+			e.printStackTrace();
+		}
 	}
 }

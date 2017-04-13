@@ -21,16 +21,29 @@ public class DataManager {
 	}
 	
 	public void readDataFromFiles() throws IOException {
-		DataInputStream pointer1IS= new DataInputStream(new FileInputStream(pointer1File));
-		pointer1IS.skipBytes(0x2710);
-		int offset = toLittleEndian(pointer1IS.readInt());
-		while(offset != 0) {
-			pointersValue.add(offset);
-			offset = toLittleEndian(pointer1IS.readInt());
+		try(DataInputStream pointer1IS = new DataInputStream(new FileInputStream(pointer1File))) {
+			pointer1IS.skipBytes(0x2710);
+			int offset = toLittleEndian(pointer1IS.readInt());
+			while(offset != 0) {
+				pointersValue.add(offset);
+				offset = toLittleEndian(pointer1IS.readInt());
+			}
 		}
-		pointer1IS.close();
 		// Adding end of file offset to compute the last template entry length
 		pointersValue.add((int)templateFile.length());
+		
+		try(DataInputStream templateIS = new DataInputStream(new FileInputStream(templateFile))) {
+			for(int i=0; i<pointersValue.size()-1; i++) {
+				int sizeToRead = pointersValue.get(i+1) - pointersValue.get(i);
+				byte[] bytesArray = new byte[sizeToRead];
+				int byteNumberRead = templateIS.read(bytesArray, 0, sizeToRead);
+				if (byteNumberRead != sizeToRead) {
+					System.out.println("[DataManager] Number of bytes read: "+byteNumberRead+", expected: "+sizeToRead);
+				}
+				String text = new String(bytesArray, "Cp1252");
+				templateTexts.add(text);
+			}
+		}
 	}
 	
 	private int toLittleEndian(int val)
@@ -40,5 +53,9 @@ public class DataManager {
 		int i3 = (val >> 16) & 0xff;
 		int i4 = (val >> 24) & 0xff;
 		return i1 << 24 | i2 << 16 | i3 << 8 | i4 << 0;
+	}
+	
+	public List<String> getTemplateTexts() {
+		return this.templateTexts;
 	}
 }

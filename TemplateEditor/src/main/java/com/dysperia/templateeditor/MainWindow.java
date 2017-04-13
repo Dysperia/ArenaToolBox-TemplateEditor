@@ -130,6 +130,7 @@ public class MainWindow extends BorderPane {
         	    }
         	    titles.add(entry.substring(match.start(), match.end()));
     		}
+    		listView.getSelectionModel().selectFirst();
 		} catch (IOException e) {
 			showInfoAlert("Cannot read files", "The file POINTER1.DAT or TEMPLATE.DAT was not found or it was impossible to read the data from thme");
 			e.printStackTrace();

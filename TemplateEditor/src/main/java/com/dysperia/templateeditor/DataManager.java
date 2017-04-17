@@ -3,7 +3,12 @@ package com.dysperia.templateeditor;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -58,7 +63,7 @@ public class DataManager {
 				offset = changeEndianness(pointer1IS.readInt());
 			}
 			// Adding end of file offset to compute the last template entry length
-			pointersValue.add((int)templateFile.length());
+			pointersValue.add((int)templateFile.length()+1);
 		}
 	}
 	
@@ -69,7 +74,7 @@ public class DataManager {
 				byte[] bytesArray = new byte[sizeToRead];
 				int byteNumberRead = templateIS.read(bytesArray, 0, sizeToRead);
 				if (byteNumberRead != sizeToRead) {
-					System.err.println("[DataManager] Number of bytes read: "+byteNumberRead+", expected: "+sizeToRead);
+					System.err.println("[DataManager] Number of bytes read: "+byteNumberRead+", expected: "+sizeToRead+" ("+i+")");
 				}
 				String text = new String(bytesArray, "Cp1252");
 				templateTexts.add(text);
@@ -135,24 +140,46 @@ public class DataManager {
 		return copy;
 	}
 	
+	/**
+	 * Convert the \n in the texts into \r\n
+	 */
 	private void convertNewLineCharacters() {
-		// TODO convert
+		for (int i = 0; i<templateTexts.size(); i++) {
+			templateTexts.set(i, templateTexts.get(i).replace("\n", "\r\n"));
+		}
 	}
 	
 	/**
-	 * Save the texts to the given files
-	 * @param templateFile TEMPLATE.DAT File
-	 * @param pointerFile POINTER1.DAT File
+	 * Save the texts to the given files. Both files should already exists
+	 * @param templateFile TEMPLATE.DAT File to write
+	 * @param pointerFile POINTER1.DAT File to write
+	 * @throws IOException 
 	 */
-	public void saveEditedTexts(File templateFile, File pointerFile) {
+	public void saveEditedTexts(File templateFile, File pointerFile) throws IOException {
 		this.convertNewLineCharacters();
-		// TODO save
+		FileOutputStream templateOS = new FileOutputStream(templateFile);
+		SeekableByteChannel pointerSBC = Files.newByteChannel(pointerFile.toPath(), StandardOpenOption.WRITE);
+		pointerSBC.position(0x2710);
+		ByteBuffer bb = ByteBuffer.allocate(this.templateTexts.size()*4);
+		int offset = 1;
+		for (int i=0; i<this.templateTexts.size(); i++) {
+			this.pointersValue.set(i, offset);
+			bb.putInt(this.changeEndianness(offset));
+			byte[] textBytes = templateTexts.get(i).getBytes();
+			templateOS.write(textBytes);
+			offset += textBytes.length;
+		}
+		templateOS.flush();
+		templateOS.close();
+		pointerSBC.write(bb);
+		pointerSBC.close();
 	}
 	
 	/**
 	 * Save the texts to the files given at this object creation
+	 * @throws IOException 
 	 */
-	public void saveEditedTexts() {
+	public void saveEditedTexts() throws IOException {
 		this.saveEditedTexts(this.templateFile, this.pointer1File);
 	}
 }

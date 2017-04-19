@@ -10,10 +10,10 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Class managing the TEMPLATE.DAT and POINTER1.DAT data
@@ -46,12 +46,18 @@ public class DataManager {
 	
 	/**
 	 * Load the text data using POINTER1.DAT and TEMPLATE.DAT
-	 * @throws IOException
+	 * @return True if everything went well, false otherwise
 	 */
-	public void readDataFromFiles() throws IOException {
-		this.readOffsets();
-		this.readTemplateTexts();
-		this.buildTitles();
+	public boolean readDataFromFiles() {
+		try {
+			this.readOffsets();
+			this.readTemplateTexts();
+			return this.buildTitles();
+		} catch (IOException e) {
+			System.err.println("[DataManager] Error while loading data from files");
+			e.printStackTrace();
+			return false;
+		}
 	}
 	
 	private void readOffsets() throws IOException {
@@ -76,7 +82,7 @@ public class DataManager {
 				if (byteNumberRead != sizeToRead) {
 					System.err.println("[DataManager] Number of bytes read: "+byteNumberRead+", expected: "+sizeToRead+" ("+i+")");
 				}
-				String text = new String(bytesArray, "Cp1252");
+				String text = new String(bytesArray, "ASCII");
 				templateTexts.add(text);
 			}
 		}
@@ -98,17 +104,23 @@ public class DataManager {
 	
 	/**
 	 * Built the titles from the TEMPLATE.DAT texts
+	 * @return False in case of error, true otherwise
 	 */
-	private void buildTitles() {
+	private boolean buildTitles() {
+		boolean result = true;
 		Pattern charsFollowingTitle = Pattern.compile("#[^\\s]*");
 		for(int i=0; i<templateTexts.size(); i++) {
 			String entry = templateTexts.get(i);
     	    Matcher match = charsFollowingTitle.matcher(entry);
     	    if(!match.find()) {
     	    	System.err.println("[DataManager] Title not found in " + entry);
+    	    	result = false;
     	    }
-    	    titles.add(entry.substring(match.start(), match.end()));
+    	    else {
+        	    titles.add(entry.substring(match.start(), match.end()));
+    	    }
 		}
+		return result;
 	}
 	
 	/**
@@ -116,18 +128,18 @@ public class DataManager {
 	 * @return The list of the texts contained in TEMPLATE.DAT
 	 */
 	public List<String> getTemplateTexts() {
-		List<String> copy = new ArrayList<>(this.templateTexts);
-		Collections.copy(copy, this.templateTexts);
+		List<String> copy = this.copy(templateTexts);
+		this.convertLineBreakFromWindowsToUnix(copy);
 		return copy;
 	}
 	
 	/**
 	 * Set the new texts to the given list
-	 * @param texts new TEMPLATE.DAT texts
+	 * @param texts New TEMPLATE.DAT texts
 	 */
 	public void setTemplateTexts(List<String> texts) {
-		this.templateTexts = texts;
-		this.buildTitles();
+		this.templateTexts = this.copy(texts);
+		convertLineBreakFromUnixToWindows(templateTexts);
 	}
 	
 	/**
@@ -135,17 +147,28 @@ public class DataManager {
 	 * @return The list of the titles of the texts contained in TEMPLATE.DAT
 	 */
 	public List<String> getTitles() {
-		List<String> copy = new ArrayList<>(this.titles);
-		Collections.copy(copy, this.titles);
-		return copy;
+		return this.copy(titles);
+	}
+	
+	private List<String> copy(List<String> list) {
+		return list.stream().map(s -> { return new String(s); }).collect(Collectors.toList());
+	}
+	
+	/**
+	 * Convert the \r\n in the texts into \n
+	 */
+	private void convertLineBreakFromWindowsToUnix(List<String> texts) {
+		for (int i = 0; i<texts.size(); i++) {
+			texts.set(i, texts.get(i).replace("\r\n", "\n"));
+		}
 	}
 	
 	/**
 	 * Convert the \n in the texts into \r\n
 	 */
-	private void convertNewLineCharacters() {
-		for (int i = 0; i<templateTexts.size(); i++) {
-			templateTexts.set(i, templateTexts.get(i).replace("\n", "\r\n"));
+	private void convertLineBreakFromUnixToWindows(List<String> texts) {
+		for (int i = 0; i<texts.size(); i++) {
+			texts.set(i, texts.get(i).replace("\n", "\r\n"));
 		}
 	}
 	
@@ -153,33 +176,40 @@ public class DataManager {
 	 * Save the texts to the given files. Both files should already exists
 	 * @param templateFile TEMPLATE.DAT File to write
 	 * @param pointerFile POINTER1.DAT File to write
-	 * @throws IOException 
+	 * @return True if the save was successful, false otherwise
 	 */
-	public void saveEditedTexts(File templateFile, File pointerFile) throws IOException {
-		this.convertNewLineCharacters();
-		FileOutputStream templateOS = new FileOutputStream(templateFile);
-		SeekableByteChannel pointerSBC = Files.newByteChannel(pointerFile.toPath(), StandardOpenOption.WRITE);
-		pointerSBC.position(0x2710);
-		ByteBuffer bb = ByteBuffer.allocate(this.templateTexts.size()*4);
-		int offset = 1;
-		for (int i=0; i<this.templateTexts.size(); i++) {
-			this.pointersValue.set(i, offset);
-			bb.putInt(this.changeEndianness(offset));
-			byte[] textBytes = templateTexts.get(i).getBytes();
-			templateOS.write(textBytes);
-			offset += textBytes.length;
+	public boolean saveEditedTexts(File templateFile, File pointerFile) {
+		try {
+			FileOutputStream templateOS = new FileOutputStream(templateFile);
+			SeekableByteChannel pointerSBC = Files.newByteChannel(pointerFile.toPath(), StandardOpenOption.WRITE);
+			pointerSBC.position(0x2710);
+			ByteBuffer bb = ByteBuffer.allocate(this.templateTexts.size()*4);
+			int offset = 1;
+			for (int i=0; i<this.templateTexts.size(); i++) {
+				this.pointersValue.set(i, offset);
+				bb.putInt(this.changeEndianness(offset));
+				byte[] textBytes = templateTexts.get(i).getBytes("ASCII");
+				templateOS.write(textBytes);
+				offset += textBytes.length;
+			}
+			templateOS.flush();
+			templateOS.close();
+			bb.flip();
+			pointerSBC.write(bb);
+			pointerSBC.close();
+			return true;
+		} catch (IOException e) {
+			System.err.println("[DataManager] Error while saving the data");
+			e.printStackTrace();
+			return false;
 		}
-		templateOS.flush();
-		templateOS.close();
-		pointerSBC.write(bb);
-		pointerSBC.close();
 	}
 	
 	/**
 	 * Save the texts to the files given at this object creation
-	 * @throws IOException 
+	 * @return True if the save was successful, false otherwise
 	 */
-	public void saveEditedTexts() throws IOException {
-		this.saveEditedTexts(this.templateFile, this.pointer1File);
+	public boolean saveEditedTexts() {
+		return this.saveEditedTexts(this.templateFile, this.pointer1File);
 	}
 }

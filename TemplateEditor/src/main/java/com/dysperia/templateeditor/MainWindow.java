@@ -48,6 +48,13 @@ public class MainWindow extends BorderPane {
 	private final Stage stage;
 	/** Data manager used to load and save data from TEMPLATE.DAT and POINTER1.DAT */
 	private DataManager dataManager;
+//	/** About text */
+//	private final String aboutText = ""
+//			+ "Template editor, part of the ArenaToolBox softwares\n"
+//			+ "Author: Dysperia (softwatermermaid@hotmail.fr)\n\n"
+//			+ "This software is used to edit the text contained in the\n"
+//			+ "TEMPLATE.DAT without character number limits, by updating\n"
+//			+ "the offsets found in the POINTER1.DAT file.\n";
 	
 	/**
 	 * Constructor
@@ -126,15 +133,12 @@ public class MainWindow extends BorderPane {
         saveButton.setOnAction(e -> {
         	if (dataManager != null) {
             	dataManager.setTemplateTexts(this.templateTexts);
-            	try {
-					dataManager.saveEditedTexts();
-				} catch (IOException e1) {
+            	if (!dataManager.saveEditedTexts()) {
 					showInfoAlert("Cannot write files", "It was impossible to write the data to POINTER1.DAT or TEMPLATE.DAT");
-					e1.printStackTrace();
 				}
         	}
         	else {
-        		this.showInfoAlert("Save", "No texts have been loaded and edited");
+        		this.showInfoAlert("Save", "No texts have been loaded");
         	}
         });
         
@@ -158,21 +162,21 @@ public class MainWindow extends BorderPane {
 	            File pointer1Save = new File(pointer1File.getParentFile(), "POINTER1.TEST");
 	            // Build test data from file
 	        	DataManager dm = new DataManager(templateFile, pointer1File);
-				dm.readDataFromFiles();
-				// Load test data into text area
+	        	boolean result = dm.readDataFromFiles();
+				// Load most of test data into text area but not all
 				TextArea ta = new TextArea();
 	    		List<String> texts = dm.getTemplateTexts();
-	    		for (int i=0; i<texts.size(); i++) {
+	    		for (int i=20; i<texts.size(); i++) {
 	    			ta.setText(texts.get(i));
 	    			texts.set(i, ta.getText());
 	    		}
 	    		dm.setTemplateTexts(texts);
 	    		// Save test data
-	    		dm.saveEditedTexts(templateSave, pointer1Save);
+	    		result = result && dm.saveEditedTexts(templateSave, pointer1Save);
 	    		// Test the data : must be the same
 	    		int templateLength = (int)templateFile.length();
 	    		int pointerLength = (int)pointer1File.length();
-	    		boolean result = templateLength == templateSave.length() && pointerLength == pointer1Save.length();
+	    		result = result && templateLength == templateSave.length() && pointerLength == pointer1Save.length();
 	    		DataInputStream tOld = new DataInputStream(new FileInputStream(templateFile));
 	    		DataInputStream pOld = new DataInputStream(new FileInputStream(pointer1File));
 	    		DataInputStream tNew = new DataInputStream(new FileInputStream(templateSave));
@@ -191,9 +195,9 @@ public class MainWindow extends BorderPane {
 	    		pOld.close();
 	    		pNew.close();
 	    		result = result && Arrays.equals(oldArray, newArray);
-	    		this.showInfoAlert("Test", "The test "+(result ? "succeded" : "failed"));
+	    		this.showInfoAlert("Test", "The test "+(result ? "succeded" : "failed (the data loaded and saved are not the same or it was impossible to load or save)"));
     		} catch (IOException except) {
-    			showInfoAlert("File error", "The file POINTER1.DAT or TEMPLATE.DAT was not found or it was impossible to read or write the data from or to them");
+    			showInfoAlert("File error", "It was impossible to read some data");
     			except.printStackTrace();
     		}
         });
@@ -223,15 +227,15 @@ public class MainWindow extends BorderPane {
 	 */
 	private void buildDataFromFilesAndUpdateView(File templateFile, File pointer1File) {
 		dataManager = new DataManager(templateFile, pointer1File);
-		try {
-			dataManager.readDataFromFiles();
+		if (dataManager.readDataFromFiles())
+		{
     		templateTexts = dataManager.getTemplateTexts();
     		titles.addAll(dataManager.getTitles());
     		listView.getSelectionModel().clearSelection();
     		listView.getSelectionModel().selectFirst();
-		} catch (IOException e) {
+		}
+		else {
 			showInfoAlert("Cannot read files", "The file POINTER1.DAT or TEMPLATE.DAT was not found or it was impossible to read the data from them");
-			e.printStackTrace();
 		}
 	}
 }

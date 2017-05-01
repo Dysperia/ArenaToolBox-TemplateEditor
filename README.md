@@ -11,13 +11,12 @@ Note: Arena will use special character like #, % and &. Do not use them in your 
 
 # ArenaToolBox parts :
 * [BSATool](https://github.com/Dysperia/ArenaToolBox-BSATool "BSATool")
-* [TemplateEditor (old version)](https://github.com/Dysperia/TemplateEditor "TemplateEditor")
-* [TemplateEditor (new version, currently on development)](https://github.com/Dysperia/ArenaToolBox-TemplateEditor "TemplateEditor")
+* [TemplateEditor](https://github.com/Dysperia/ArenaToolBox-TemplateEditor "TemplateEditor")
 
 # Various links
 ## French translation project (PFA)
 [PFA Wiki](http://www.projet-french-arena.org/wiki/ "PFA Wiki") - [PFA forum](http://www.projet-french-arena.org/forum/ "PFA Forum")
 
 ## ArenaToolBox download from the PFA
-Be aware that the template editor is in development and some bugs have been found while using it in Turkey. The BSATool should be working for everyone.
+Be aware that the template editor is working but in testing phase and some localization bugs have been found while using it in Turkey. The BSATool should be working for everyone.
 [ArenaToolBox](http://www.projet-french-arena.org/files/ArenaToolBox_win32bit.zip "ArenaToolBox")

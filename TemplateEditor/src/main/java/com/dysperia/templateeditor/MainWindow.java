@@ -11,6 +11,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
@@ -22,7 +23,9 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 /**
@@ -31,7 +34,7 @@ import javafx.stage.Stage;
  */
 public class MainWindow extends BorderPane {
 	/** Default TextArea text */
-	private final static String defaultText = "First open the TEMPLATE.DAT directory.\n\n"
+	private final static String editorPlaceholderText = "First open the TEMPLATE.DAT directory.\n\n"
     		+ "Both the files POINTER1.DAT and TEMPLATE.DAT \n"
     		+ "must be present in the same directory.";
 	/** List of the titles */
@@ -48,13 +51,15 @@ public class MainWindow extends BorderPane {
 	private final Stage stage;
 	/** Data manager used to load and save data from TEMPLATE.DAT and POINTER1.DAT */
 	private DataManager dataManager;
-//	/** About text */
-//	private final String aboutText = ""
-//			+ "Template editor, part of the ArenaToolBox softwares\n"
-//			+ "Author: Dysperia (softwatermermaid@hotmail.fr)\n\n"
-//			+ "This software is used to edit the text contained in the\n"
-//			+ "TEMPLATE.DAT without character number limits, by updating\n"
-//			+ "the offsets found in the POINTER1.DAT file.\n";
+	/** About text */
+	private final String aboutText = ""
+			+ "Template editor, part of the ArenaToolBox softwares\n"
+			+ "Author: Dysperia (softwatermermaid@hotmail.fr)\n\n"
+			+ "This software is used to edit the text contained in the "
+			+ "TEMPLATE.DAT without character number limits, by updating "
+			+ "the offsets found in the POINTER1.DAT file.\n";
+	/** about popup */
+	private Stage aboutPopup;
 	
 	/**
 	 * Constructor
@@ -70,7 +75,8 @@ public class MainWindow extends BorderPane {
         
 		this.stage = stage;
 		
-		textArea = new TextArea(defaultText);
+		textArea = new TextArea();
+		textArea.setPromptText(editorPlaceholderText);
 		
 		titles = FXCollections.observableArrayList();
 		listView = new ListView<>(titles);
@@ -131,11 +137,16 @@ public class MainWindow extends BorderPane {
         Button saveButton = new Button(null, new ImageView(new Image("icon/save.png",24,24,true,true)));
         saveButton.setTooltip(new Tooltip("save"));
         saveButton.setOnAction(e -> {
+        	// Files have been opened for editing
         	if (dataManager != null) {
             	dataManager.setTemplateTexts(this.templateTexts);
             	if (!dataManager.saveEditedTexts()) {
 					showInfoAlert("Cannot write files", "It was impossible to write the data to POINTER1.DAT or TEMPLATE.DAT");
 				}
+            	// Reloading files
+            	else {
+            		this.rebuildDataFromFilesAndUpdateView();
+            	}
         	}
         	else {
         		this.showInfoAlert("Save", "No texts have been loaded");
@@ -203,8 +214,37 @@ public class MainWindow extends BorderPane {
         });
         /*****************************************************************************************/
         
-        ToolBar toolbar = new ToolBar(openButton, saveButton, showVariableButton, testButton);
+        Button aboutButton = new Button(null, new ImageView(new Image("icon/about.png",24,24,true,true)));
+        aboutButton.setTooltip(new Tooltip("about"));
+        aboutButton.setOnAction(e -> {
+        	if (aboutPopup == null) {
+        		buildAboutPopup();
+        	}
+        	aboutPopup.showAndWait();
+        });
+        
+        ToolBar toolbar = new ToolBar(openButton, saveButton, showVariableButton, aboutButton);
         setTop(toolbar);
+	}
+	
+	/**
+	 * Build the about popup
+	 */
+	private void buildAboutPopup() {
+    	TextArea aboutTextArea = new TextArea(aboutText);
+    	aboutTextArea.setEditable(false);
+    	aboutTextArea.setWrapText(true);
+    	aboutPopup = new Stage();
+    	aboutPopup.initModality(Modality.APPLICATION_MODAL);
+    	aboutPopup.setResizable(false);
+    	Button okButton = new Button("OK");
+    	okButton.setOnAction(evt -> {
+    		aboutPopup.close();
+    	});
+    	VBox box = new VBox();
+    	box.setAlignment(Pos.CENTER);
+    	box.getChildren().addAll(aboutTextArea, okButton);
+    	aboutPopup.setScene(new Scene(box, 400, 200));
 	}
 	
 	/**
@@ -233,6 +273,23 @@ public class MainWindow extends BorderPane {
     		titles.addAll(dataManager.getTitles());
     		listView.getSelectionModel().clearSelection();
     		listView.getSelectionModel().selectFirst();
+		}
+		else {
+			showInfoAlert("Cannot read files", "The file POINTER1.DAT or TEMPLATE.DAT was not found or it was impossible to read the data from them");
+		}
+	}
+	
+	/**
+	 * Rebuild the data and update the view
+	 */
+	private void rebuildDataFromFilesAndUpdateView() {
+		if (dataManager.readDataFromFiles())
+		{
+			int selectedIndex = listView.getSelectionModel().getSelectedIndex();
+    		templateTexts = dataManager.getTemplateTexts();
+    		titles.addAll(dataManager.getTitles());
+    		listView.getSelectionModel().clearSelection();
+    		listView.getSelectionModel().select(selectedIndex);
 		}
 		else {
 			showInfoAlert("Cannot read files", "The file POINTER1.DAT or TEMPLATE.DAT was not found or it was impossible to read the data from them");

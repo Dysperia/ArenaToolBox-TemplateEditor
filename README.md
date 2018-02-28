@@ -1,10 +1,10 @@
-TemplateEditor (currently developed version)
+TemplateEditor
 ==============
 
 # Summary
 
 TemplateEditor is part of the ArenaToolBox project which want to provide translators and modders various tools for creating, editing and update the different TES1: Arena file formats.
-TemplateEditor provides support for exploring and editing the TEMPLATE.DAT file. This file contains the majority of Arena in-game texts. However, the game will look for these texts at specific offsets and thus when translating the game one can have a limited number of characters. Since the offset are located in POINTER1.DAT, this tool was imagine to edit the text and update the offsets. Thanks to that, the limitation is removed. Also, keep in mind that this tool is in under active development and has not yet all his functionalities.
+TemplateEditor provides support for exploring and editing the TEMPLATE.DAT file. This file contains the majority of Arena in-game texts. However, the game will look for these texts at specific offsets and thus when translating the game one can have a limited number of characters. Since the offset are located in POINTER1.DAT, this tool was imagine to edit the text and update the offsets. Thanks to that, the limitation is removed.
 BSATool was created by David Aussourd alias Dysperia (softwatermermaid@hotmail.fr) with Java 8 and JavaFX.
 
 Note: Arena will use special character like #, % and &. Do not use them in your edited text or Arena could not appreciate it.
